@@ -7,6 +7,8 @@ import numpy as np
 from typing import Tuple, Union
 from tensorflow.keras.preprocessing import image
 import os 
+import config
+
 model: FacialRecognition = modeling.build_model('ArcFace')
 face_detector: Detector = build_model('ssd')
 target_size = model.input_shape
@@ -56,52 +58,97 @@ def resize_image(img: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
 
     return img
 
-def get_emb(img: Union[str, np.ndarray]) -> np.ndarray:
-     image, _ = preprocessing.load_image(img)
-     result = face_detector.detect_faces(image)
-     result = result[0]
-     aligned_img, angle = detection.align_face(
-     img=image, left_eye=result.left_eye, right_eye=result.right_eye
-     )
-     rotated_x1, rotated_y1, rotated_x2, rotated_y2 = rotate_facial_area(
-                    facial_area=(result.x, result.y, result.x + result.w, result.y + result.h),
-                    angle=angle,
-                    size=(image.shape[0], image.shape[1])
-               )
-     source_face = aligned_img[
-                    int(rotated_y1) : int(rotated_y2),
-                    int(rotated_x1) : int(rotated_x2)]
-     source_img = source_face
-     source_img = source_img.squeeze()
-     source_img = source_img[:, :, ::-1]
-     source_img = resize_image(source_img, (target_size[1], target_size[0]))
-     source_img = preprocessing.normalize_input(img=source_img, normalization='base')
-     source_emb = model.find_embeddings(source_img)
-     source_emb = np.array(source_emb)
-     return source_emb
+def face_detect(image):
+    try:
+        image, _ = preprocessing.load_image(image)
+        results = face_detector.detect_faces(image)
+        
+        if not results:
+            raise ValueError("Không tìm thấy khuôn mặt trong khung hình")
+        elif len(results) > 1: 
+            raise ValueError("Phát hiện nhiều hơn một khuôn mặt trong khung hình")
+        
+        result = results[0]
+        
+        aligned_img, angle = detection.align_face(
+            img=image, left_eye=result.left_eye, right_eye=result.right_eye
+        )
+        
+        rotated_x1, rotated_y1, rotated_x2, rotated_y2 = rotate_facial_area(
+            facial_area=(result.x, result.y, result.x + result.w, result.y + result.h),
+            angle=angle,
+            size=(image.shape[0], image.shape[1])
+        )
+        
+        return aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2
+    except FileNotFoundError:
+        raise FileNotFoundError("Không thể tải ảnh")
+    except ValueError as ve:
+        raise ve
+    except Exception as e:
+        raise RuntimeError(f"Lỗi không xác định: {e}")
 
-def save_db(img: Union[str, np.ndarray], id: str, name: str) : 
-     emb = get_emb(img)
-     if os.path.exists('db.npy') : 
-          db = np.load('db.npy', allow_pickle=True)
-          new_e = np.array([id, emb])
+def get_emb(aligned_img: Union[str, np.ndarray],  rotated_x1: float, rotated_y1: float, rotated_x2: float, rotated_y2: float) -> np.ndarray:
+    try:
+        # Assuming preprocessing, detection, and other required modules are already imported and configured        
+        source_face = aligned_img[
+            int(rotated_y1): int(rotated_y2),
+            int(rotated_x1): int(rotated_x2)
+        ]
+
+        source_img = source_face.squeeze()
+        source_img = source_img[:, :, ::-1]  # Convert BGR to RGB if necessary
+
+        # Assuming 'resize_image' and 'preprocessing.normalize_input' are defined elsewhere
+        source_img = resize_image(source_img, (target_size[1], target_size[0]))
+        source_img = preprocessing.normalize_input(img=source_img, normalization='base')
+
+        source_emb = model.find_embeddings(source_img)
+        source_emb = np.array(source_emb)
+
+        return source_emb
+
+    except Exception as e:
+        # Handle exceptions such as no faces detected or other errors
+        print(f"An error occurred: {str(e)}. Please try again with a different image.")
+        # Optionally, you can raise the error again if you want the exception to propagate
+        # raise e
+
+
+def save_db(img: Union[str, np.ndarray], id: int) : 
+     aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2 =face_detect(img)
+     emb = get_emb(aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2)
+
+     if os.path.exists(config.VECTOR_DB_PATH) : 
+          db = np.load(config.VECTOR_DB_PATH, allow_pickle=True)
+          new_e = np.array([id,emb])
           db = np.append(db, [new_e], axis=0)
-          np.save('db.npy', db)
      else : 
-          db = np.array([[id, emb], ])
-          np.save('db.npy', db)
-     # db = np.concatenate((db, emb))
-     # np.save('db.npy', db)
-     # loaded_array = np.load('db.npy', allow_pickle=True)
-     print(f"Bạn đã lưu dữ liệu của Nhân viên {name} với Id {id} thành công")
+          db = np.array([[id,emb], ])
+     np.save(config.VECTOR_DB_PATH, db)
+    
 
 def identify(
-    image: Union[np.ndarray, list],
-) -> str : 
-     db = np.load('db.npy', allow_pickle=True)
-     emb = get_emb(image)
-     for id, emb_db in db :  
-          distance = verification.find_distance(
-                emb, emb_db, 'cosine'
-          )
-          print(distance)
+    emb_vec: np.ndarray
+) -> Tuple[str, str, float]:
+    if not os.path.exists(config.VECTOR_DB_PATH):
+        raise FileNotFoundError("Chưa có tệp cơ sở dữ liệu (db.npy)")
+
+    result = []
+    db = np.load(config.VECTOR_DB_PATH, allow_pickle=True)
+
+    # Tính toán embedding của hình ảnh đầu vào
+
+    # Tìm khoảng cách nhỏ nhất và lưu id của ảnh tương ứng
+    min_distance = float('inf')
+    min_id = None
+    for id, emb_db in db:
+        print()
+        distance = verification.find_distance(emb_vec, emb_db, 'cosine')
+        result.append((id, distance))
+        
+        if distance < min_distance:
+            min_distance = distance
+            min_id = id
+
+    return min_id, min_distance
