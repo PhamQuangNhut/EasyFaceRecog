@@ -177,8 +177,8 @@ Ensure all necessary Python dependencies are installed before attempting to run 
 
 ## Contact
 
-Pham Quang Nhut - [@phamnhutcongviec@gmail.com]
-Project Link: [https://github.com/PhamQuangNhut/EasyFaceRecog](https://github.com/PhamQuangNhut/EasyFaceRecog)
+- Pham Quang Nhut - [@phamnhutcongviec@gmail.com]
+- Project Link: [https://github.com/PhamQuangNhut/EasyFaceRecog](https://github.com/PhamQuangNhut/EasyFaceRecog)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
