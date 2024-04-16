@@ -2,16 +2,16 @@ from deepface.modules import detection, modeling, preprocessing, verification
 from deepface.models.FacialRecognition import FacialRecognition 
 from deepface.models.Detector import Detector
 from deepface.detectors.DetectorWrapper import build_model, rotate_facial_area
-import cv2
 import numpy as np 
 from typing import Tuple, Union
 from tensorflow.keras.preprocessing import image
-import os 
-import config as config
-
-model: FacialRecognition = modeling.build_model('ArcFace')
+from PIL import Image
+import io
+import cv2
+model: FacialRecognition = modeling.build_model('GhostFaceNet')
 face_detector: Detector = build_model('ssd')
 target_size = model.input_shape
+
 def resize_image(img: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
     """
     Resize an image to expected size of a ml model with adding black pixels.
@@ -91,64 +91,24 @@ def face_detect(image):
 def get_emb(aligned_img: Union[str, np.ndarray],  rotated_x1: float, rotated_y1: float, rotated_x2: float, rotated_y2: float) -> np.ndarray:
     try:
         # Assuming preprocessing, detection, and other required modules are already imported and configured        
-        source_face = aligned_img[
+        face_img = aligned_img[
             int(rotated_y1): int(rotated_y2),
             int(rotated_x1): int(rotated_x2)
         ]
 
-        source_img = source_face.squeeze()
-        source_img = source_img[:, :, ::-1]  # Convert BGR to RGB if necessary
+        face_img = face_img.squeeze()
+        face_img = face_img[:, :, ::-1]  # Convert BGR to RGB if necessary
 
         # Assuming 'resize_image' and 'preprocessing.normalize_input' are defined elsewhere
-        source_img = resize_image(source_img, (target_size[1], target_size[0]))
-        source_img = preprocessing.normalize_input(img=source_img, normalization='base')
+        face_emb = resize_image(face_img, (target_size[1], target_size[0]))
+        face_emb = preprocessing.normalize_input(img=face_emb, normalization='base')
 
-        source_emb = model.find_embeddings(source_img)
-        source_emb = np.array(source_emb)
+        face_emb = model.find_embeddings(face_emb)
+        face_emb = np.array(face_emb)
 
-        return source_emb
+        return face_img, face_emb
 
     except Exception as e:
-        # Handle exceptions such as no faces detected or other errors
-        print(f"An error occurred: {str(e)}. Please try again with a different image.")
-        # Optionally, you can raise the error again if you want the exception to propagate
-        # raise e
-
-
-def save_db(img: Union[str, np.ndarray], id: int) : 
-     aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2 =face_detect(img)
-     emb = get_emb(aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2)
-
-     if os.path.exists(config.VECTOR_DB_PATH) : 
-          db = np.load(config.VECTOR_DB_PATH, allow_pickle=True)
-          new_e = np.array([id,emb])
-          db = np.append(db, [new_e], axis=0)
-     else : 
-          db = np.array([[id,emb], ])
-     np.save(config.VECTOR_DB_PATH, db)
-    
-
-def identify(
-    emb_vec: np.ndarray
-) -> Tuple[str, str, float]:
-    if not os.path.exists(config.VECTOR_DB_PATH):
-        raise FileNotFoundError("Chưa có tệp cơ sở dữ liệu (db.npy)")
-
-    result = []
-    db = np.load(config.VECTOR_DB_PATH, allow_pickle=True)
-
-    # Tính toán embedding của hình ảnh đầu vào
-
-    # Tìm khoảng cách nhỏ nhất và lưu id của ảnh tương ứng
-    min_distance = float('inf')
-    min_id = None
-    for id, emb_db in db:
-        print()
-        distance = verification.find_distance(emb_vec, emb_db, 'cosine')
-        result.append((id, distance))
-        
-        if distance < min_distance:
-            min_distance = distance
-            min_id = id
-
-    return min_id, min_distance
+        raise ValueError(f"An error occurred: {str(e)}. Please try again with a different image.")
+   
+   

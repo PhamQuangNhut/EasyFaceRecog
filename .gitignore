@@ -1,3 +1,4 @@
 Asset/
-DB/
+DB/emb.npy
+DB/face_checkin_checkout.npy
 .gitignore

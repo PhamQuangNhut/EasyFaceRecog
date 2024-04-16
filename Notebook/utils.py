@@ -110,14 +110,13 @@ def get_emb(aligned_img: Union[str, np.ndarray],  rotated_x1: float, rotated_y1:
 
     except Exception as e:
         # Handle exceptions such as no faces detected or other errors
-        print(f"An error occurred: {str(e)}. Please try again with a different image.")
         # Optionally, you can raise the error again if you want the exception to propagate
         # raise e
 
 
 def save_db(img: Union[str, np.ndarray], id: int) : 
      aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2 =face_detect(img)
-     emb = get_emb(aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2)
+     _, emb = get_emb(aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2)
 
      if os.path.exists(config.VECTOR_DB_PATH) : 
           db = np.load(config.VECTOR_DB_PATH, allow_pickle=True)
@@ -143,7 +142,6 @@ def identify(
     min_distance = float('inf')
     min_id = None
     for id, emb_db in db:
-        print()
         distance = verification.find_distance(emb_vec, emb_db, 'cosine')
         result.append((id, distance))
         

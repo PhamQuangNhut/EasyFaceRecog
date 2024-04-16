@@ -1,34 +1,31 @@
 import tkinter as tk
 import cv2
 from PIL import Image, ImageTk
-from utils import save_db
 from tkinter import messagebox
-
-class NewFaceWindow:
-    def __init__(self, parent, name, id):
-        self.parent = parent
-        self.name = name
-        self.id = id
+import sys
+import os
+import io
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '')))
+import AIModule 
+class AddFace:
+    def __init__(self, root, employee):
+        self.root = root
+        self.employee = employee
         self.window = tk.Toplevel()
-        self.window.title("Thêm Nhân Viên")
-
-        # Màn hình hiển thị hình ảnh từ camera
+        self.window.title("PCheck")
+        self.e_controller = self.root.e_controller
         self.canvas = tk.Canvas(self.window, width=640, height=480)
         self.canvas.pack()
 
-        # Button Submit
         self.btn_submit = tk.Button(self.window, text="Submit", command=self.submit_data)
         self.btn_submit.pack(pady=10)
 
-        # Button Quay lại
         self.btn_back = tk.Button(self.window, text="Quay lại", command=self.go_back)
         self.btn_back.pack(pady=10)
 
-        # Label để hiển thị thông báo
         self.lbl_message = tk.Label(self.window, text="", fg="red")
         self.lbl_message.pack()
 
-        # Khởi tạo camera
         self.vid = cv2.VideoCapture(0)
         self.show_frame()
 
@@ -43,23 +40,34 @@ class NewFaceWindow:
     def close_camera(self):
         if self.vid.isOpened():
             self.vid.release()
-        print("Camera has been successfully released.")
 
     def submit_data(self):
         try:
             ret, frame = self.vid.read()
             if not ret:
                 raise Exception("Không thể đọc frame từ camera")
-
-            save_db(img=frame, id=self.id)
-            messagebox.showinfo("Thông báo", f"Bạn đã lưu dữ liệu của Nhân viên {self.name} với ID {self.id} thành công")
+            aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2 = AIModule.face_detect(frame)
+            face_img, face_emb = AIModule.get_emb(aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2)
+            face_img = Image.fromarray(face_img)
+            img_byte_arr = io.BytesIO()
+            face_img.save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+            success = self.e_controller.add_face(self.employee.id, img_byte_arr, face_emb)
+            if success:
+               messagebox.showinfo("Thông báo", f"Bạn đã lưu dữ liệu của Nhân viên {self.employee.full_name} với ID {self.employee.id} thành công")
+            else : 
+                messagebox.showinfo("Thông báo", f"Lưu dữ liệu của Nhân viên không thành công")
             self.go_back()  # Sử dụng hàm go_back để quay lại màn hình chính sau khi lưu dữ liệu thành công
         except Exception as e:
             self.lbl_message.config(text=f"Đã xảy ra lỗi: {e}")
-
+    def __del__(self):
+        if hasattr(self, 'vid') and self.vid.isOpened():
+            self.vid.release()
+        self.root.open_camera()
+        self.root.show_main_window()
     def go_back(self):
         # Đóng cửa sổ hiện tại và quay lại màn hình chính
         self.close_camera()
         self.window.destroy()
-        self.parent.open_camera()
-        self.parent.show_main_window()
+        self.root.open_camera()
+        self.root.show_main_window()
