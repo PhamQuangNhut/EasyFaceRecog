@@ -85,6 +85,8 @@ class EmployeeController:
               self.session.commit()
               return True
           return False
+    def get_all_employees(self):
+        return self.session.query(Employee).all()
     def get_employee_by_number(self, number):
         return self.session.query(Employee).filter_by(number=number).all()
 

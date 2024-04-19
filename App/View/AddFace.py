@@ -32,6 +32,13 @@ class AddFace:
     def show_frame(self):
         ret, frame = self.vid.read()
         if ret:
+            try:
+                    aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2 = AIModule.face_detect(frame)
+                    if aligned_img is not None:
+                    # Nếu có hình ảnh và tọa độ đã được chỉ định, vẽ bounding box
+                         cv2.rectangle(frame, (rotated_x1, rotated_y1), (rotated_x2, rotated_y2), (0, 255, 0), 2)
+            except:
+                    pass
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             self.photo = ImageTk.PhotoImage(image=Image.fromarray(frame))
             self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
