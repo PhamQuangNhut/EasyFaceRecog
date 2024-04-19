@@ -9,7 +9,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/PhamQuangNhut/EasyFaceRecog">
-    <img src="Images/BackgroundImage.jpg" alt="Logo" width="80" height="80">
+    <img src="Images/BackgroundImage.jpg" alt="Logo">
   </a>
   <h3 align="center">EasyFaceRecog</h3>
 
