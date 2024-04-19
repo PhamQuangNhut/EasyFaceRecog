@@ -61,38 +61,36 @@ class CheckInOut:
                               face['aligned_img'], face['rotated_x1'], face['rotated_y1'], face['rotated_x2'], face['rotated_y2']
                          )
                          face_img, face_emb = AIModule.get_emb(aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2)
-                         is_live = AIModule.liveness_detect(face_img)
-                         if is_live: 
-                              face_img = Image.fromarray(face_img)
-                              img_byte_arr = io.BytesIO()
-                              face_img.save(img_byte_arr, format='PNG')
-                              img_byte_arr = img_byte_arr.getvalue()
-                              user, dist = self.e_controller.get_employee_by_face_emb(face_emb)
-                              print(dist)
+                         face_img = Image.fromarray(face_img)
+                         img_byte_arr = io.BytesIO()
+                         face_img.save(img_byte_arr, format='PNG')
+                         img_byte_arr = img_byte_arr.getvalue()
+                         user, dist = self.e_controller.get_employee_by_face_emb(face_emb)
+                         print(dist)
 
-                              if dist <= 0.6:
-                                   now = datetime.datetime.now()
-                                   check_record = self.record_controller.add_check_record(user_id=user.id, type=action_type, time=now, face_img=img_byte_arr)
+                         if dist <= 0.6:
+                              now = datetime.datetime.now()
+                              check_record = self.record_controller.add_check_record(user_id=user.id, type=action_type, time=now, face_img=img_byte_arr)
 
-                                   if action_type == "Check In":
-                                        if now.time() <= datetime.time(9, 0):  # On time
-                                             message = f"Chúc bạn {user.full_name} có một ngày làm việc vui vẻ. Cảm ơn bạn đã đi làm đúng giờ."
-                                        elif now.time() < datetime.time(8, 0):  # Early
-                                             message = f"Bạn {user.full_name} thực sự là một nhân viên tốt. Sự đóng góp của bạn là sự thành công của công ty. Chúc bạn có một ngày làm việc vui vẻ."
-                                        else:  # Late
-                                             message = f"Chúc bạn {user.full_name} có một ngày làm việc vui vẻ. Hy vọng ngày mai bạn sẽ đi làm đúng giờ."
-                                        self.lbl_message.config(text=message)
+                              if action_type == "Check In":
+                                   if now.time() <= datetime.time(9, 0):  # On time
+                                        message = f"Chúc bạn {user.full_name} có một ngày làm việc vui vẻ. Cảm ơn bạn đã đi làm đúng giờ."
+                                   elif now.time() < datetime.time(8, 0):  # Early
+                                        message = f"Bạn {user.full_name} thực sự là một nhân viên tốt. Sự đóng góp của bạn là sự thành công của công ty. Chúc bạn có một ngày làm việc vui vẻ."
+                                   else:  # Late
+                                        message = f"Chúc bạn {user.full_name} có một ngày làm việc vui vẻ. Hy vọng ngày mai bạn sẽ đi làm đúng giờ."
+                                   self.lbl_message.config(text=message)
 
-                                   elif action_type == "Check Out":
-                                        checkin_time = self.record_controller.get_lastest_checkin_records_by_user_id(user.id)
-                                        worked_hours = (now - checkin_time).total_seconds() / 3600
-                                        if worked_hours < 8:
-                                             message = f"Cảm ơn bạn {user.full_name} đã có một ngày làm việc tốt. Hình như hôm nay bạn làm việc chưa đủ 8 giờ. Ngày mai bạn bù nhé."
-                                        else:
-                                             message = f"Cảm ơn bạn {user.full_name} đã có một ngày làm việc tốt. Bạn là một nhân viên tốt, sự thành công của công ty là nhờ sự đóng góp của bạn rất nhiều."
-                                        self.lbl_message.config(text=message)
-                              else:
-                                   self.lbl_message.config(text='Không có dữ liệu người này')
+                              elif action_type == "Check Out":
+                                   checkin_time = self.record_controller.get_lastest_checkin_records_by_user_id(user.id)
+                                   worked_hours = (now - checkin_time).total_seconds() / 3600
+                                   if worked_hours < 8:
+                                        message = f"Cảm ơn bạn {user.full_name} đã có một ngày làm việc tốt. Hình như hôm nay bạn làm việc chưa đủ 8 giờ. Ngày mai bạn bù nhé."
+                                   else:
+                                        message = f"Cảm ơn bạn {user.full_name} đã có một ngày làm việc tốt. Bạn là một nhân viên tốt, sự thành công của công ty là nhờ sự đóng góp của bạn rất nhiều."
+                                   self.lbl_message.config(text=message)
+                         else:
+                              self.lbl_message.config(text='Không có dữ liệu người này')
                except Exception as e:
                     self.lbl_message.config(text=f"Lỗi: {e}")
           else:
@@ -122,24 +120,23 @@ class CheckInOut:
                 detected_faces = AIModule.faces_detect(frame)
                 for face in detected_faces:
                     face_img, face_emb = AIModule.get_emb(face['aligned_img'], face['rotated_x1'], face['rotated_y1'], face['rotated_x2'], face['rotated_y2'])
-                    is_live = AIModule.liveness_detect(face_img)
-                    if is_live :
-                         user, dist = self.e_controller.get_employee_by_face_emb(face_emb)
+                    user, dist = self.e_controller.get_employee_by_face_emb(face_emb)
 
-                         if dist > 0.6:
-                         # Set bounding box color to red and do not display the name
-                              bbox_color = (255, 0, 0)  # Red color
-                         else:
-                         # Set bounding box color to green and display the name
-                              bbox_color = (0, 255, 0)  # Green color
-                              #     name_and_dist = f"{user.fsull_name} ({dist:.2f})"
-                              name = f"{user.full_name}"
-                              font = ImageFont.truetype("arial.ttf", 16)
-                              text_position = (face['rotated_x1'], face['rotated_y1'] - 20)
-                              draw.text(text_position, name, font=font, fill=(255, 255, 255))
+                    if dist > 0.6:
+                        # Set bounding box color to red and do not display the name
+                        bbox_color = (255, 0, 0)  # Red color
+                    else:
+                        # Set bounding box color to green and display the name
+                        bbox_color = (0, 255, 0)  # Green color
+                    #     name_and_dist = f"{user.fsull_name} ({dist:.2f})"
+                        name = f"{user.full_name}"
+                        font = ImageFont.truetype("arial.ttf", 16)
+                        text_position = (face['rotated_x1'], face['rotated_y1'] - 20)
+                        draw.text(text_position, name, font=font, fill=(255, 255, 255))
 
-                              # Draw bounding box with specified color
-                              draw.rectangle([face['rotated_x1'], face['rotated_y1'], face['rotated_x2'], face['rotated_y2']], outline=bbox_color, width=2)
+                    # Draw bounding box with specified color
+                    draw.rectangle([face['rotated_x1'], face['rotated_y1'], face['rotated_x2'], face['rotated_y2']], outline=bbox_color, width=2)
+
             except Exception as e:
                 print("Error in face detection:", e)
 
