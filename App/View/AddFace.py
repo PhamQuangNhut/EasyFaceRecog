@@ -8,7 +8,7 @@ import io
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '')))
 import AIModule 
 class AddFace:
-    def __init__(self, root, employee):
+    def __init__(self, root, employee, video_source):
         self.root = root
         self.employee = employee
         self.window = tk.Toplevel()
@@ -26,7 +26,7 @@ class AddFace:
         self.lbl_message = tk.Label(self.window, text="", fg="red")
         self.lbl_message.pack()
 
-        self.vid = cv2.VideoCapture(0)
+        self.vid = cv2.VideoCapture(video_source)
         self.show_frame()
 
     def show_frame(self):

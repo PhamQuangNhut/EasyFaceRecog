@@ -5,5 +5,6 @@ import tkinter as tk
 
 session = get_session(config.SQLITE_DB_PATH)
 root = tk.Tk()
-app = CheckInOut(root, session, face_embs)
+root.geometry("1100x560")  
+app = CheckInOut(root, session, face_embs, config.CAM_INDEX)
 root.mainloop()

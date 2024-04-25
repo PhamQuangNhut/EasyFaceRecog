@@ -9,20 +9,20 @@ from PIL import Image
 import cv2
 import tensorflow as tf
 recognition_model: FacialRecognition = modeling.build_model('GhostFaceNet')
-detection_model: Detector = build_model('yolov8')
-target_size = recognition_model.input_shape
-liveness_model = tf.keras.models.load_model('./AI_Checkpoint/liveness.model')
-def resize_image(img: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
+detection_model: Detector = build_model('ssd')
+model_size = recognition_model.input_shape
+# liveness_model = tf.keras.models.load_model('./AI_Checkpoint/liveness.model')
+def resize_image(img: np.ndarray, model_size: Tuple[int, int]) -> np.ndarray:
     """
     Resize an image to expected size of a ml model with adding black pixels.
     Args:
         img (np.ndarray): pre-loaded image as numpy array
-        target_size (tuple): input shape of ml model
+        model_size (tuple): input shape of ml model
     Returns:
         img (np.ndarray): resized input image
     """
-    factor_0 = target_size[0] / img.shape[0]
-    factor_1 = target_size[1] / img.shape[1]
+    factor_0 = model_size[0] / img.shape[0]
+    factor_1 = model_size[1] / img.shape[1]
     factor = min(factor_0, factor_1)
 
     dsize = (
@@ -31,8 +31,8 @@ def resize_image(img: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
     )
     img = cv2.resize(img, dsize)
 
-    diff_0 = target_size[0] - img.shape[0]
-    diff_1 = target_size[1] - img.shape[1]
+    diff_0 = model_size[0] - img.shape[0]
+    diff_1 = model_size[1] - img.shape[1]
 
     # Put the base image in the middle of the padded image
     img = np.pad(
@@ -46,8 +46,8 @@ def resize_image(img: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
     )
 
     # double check: if target image is not still the same size with target.
-    if img.shape[0:2] != target_size:
-        img = cv2.resize(img, target_size)
+    if img.shape[0:2] != model_size:
+        img = cv2.resize(img, model_size)
 
     # make it 4-dimensional how ML models expect
     img = image.img_to_array(img)
@@ -138,7 +138,7 @@ def get_emb(aligned_img: Union[str, np.ndarray],  rotated_x1: float, rotated_y1:
         face_img = face_img[:, :, ::-1]  # Convert BGR to RGB if necessary
 
         # Assuming 'resize_image' and 'preprocessing.normalize_input' are defined elsewhere
-        face_emb = resize_image(face_img, (target_size[1], target_size[0]))
+        face_emb = resize_image(face_img, (model_size[1], model_size[0]))
         face_emb = preprocessing.normalize_input(img=face_emb, normalization='base')
 
         face_emb = recognition_model.find_embeddings(face_emb)

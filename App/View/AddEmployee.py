@@ -31,11 +31,14 @@ class AddEmployee:
         number = self.entry_number.get()
         if not full_name or not number:
             messagebox.showerror("Lỗi", "Vui lòng nhập đầy đủ thông tin!")
+            self.window.lift()
             return  # Return to exit the function if there's an error
         try:
             existing_user = self.e_controller.get_employee_by_number(number = number)
             if existing_user:
                 messagebox.showerror("Lỗi", "Số điện thoại đã tồn tại. Vui lòng nhập lại!")
+                self.window.lift()
+                return  # Return to exit the function if there's an error
             else:
                 new_employee = self.e_controller.add_employee(full_name=full_name, number=number, have_face = False)
                 messagebox.showinfo("Thông báo", "Thêm hình ảnh gương mặt")
@@ -43,6 +46,6 @@ class AddEmployee:
                 self.root.close_camera()
                 self.parent_window.withdraw()
                 self.window.destroy()  # Destroy AddEmployeeWindow after submission
-                add_face_window = AddFace(self.root, new_employee)
+                add_face_window = AddFace(self.root, new_employee, self.root.video_source)
         except Exception as e:
             messagebox.showerror("Lỗi", f"{str(e)}")

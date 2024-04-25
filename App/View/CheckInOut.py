@@ -13,42 +13,63 @@ import io
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '')))
 import AIModule 
 class CheckInOut:
-     def __init__(self, window, Session, face_embs):
+     def __init__(self, window, Session, face_embs, video_source):
           self.window = window
           self.window.title('PCheck')
-          self.video_source = 0
+          
+          self.frame1 = tk.Frame(window)
+          self.frame1.grid(row=0, column=0, padx=10, pady=10)
+          
+          self.video_source = video_source
           self.vid = cv2.VideoCapture(self.video_source, )
           
           self.e_controller = EmployeeController(Session, face_embs)
           self.record_controller = CheckRecordController(Session)
+          self.image_width= int(self.vid.get(cv2.CAP_PROP_FRAME_WIDTH))
+          self.image_height=int(self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+          self.canvas = tk.Canvas(self.frame1, width=self.image_width, height=self.image_height)
+          self.canvas.grid(row=0, column=0, columnspan=3)
           
-          self.canvas = tk.Canvas(window, width=self.vid.get(cv2.CAP_PROP_FRAME_WIDTH), height=self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
-          self.canvas.grid(row=0, columnspan=3)
 
           # Button Check-in
-          self.btn_checkin = tk.Button(window, text="Check-in", width=15, command=self.checkin, bg='green')
-          self.btn_checkin.grid(row=1, column=0)
+          self.btn_checkin = tk.Button(self.frame1, text="Check-in", width=15, command=self.checkin, bg='green')
+          self.btn_checkin.grid(row=1, column=0 , sticky='w')
 
           # Hiển thị giờ hiện tại
-          self.lbl_time = tk.Label(window, text="")
-          self.lbl_time.grid(row=1, column=1)
+          self.lbl_time = tk.Label(self.frame1, text="")
+          self.lbl_time.grid(row=1, column=1, sticky='n')
           self.update_clock()
 
           # Button Check-out
-          self.btn_checkout = tk.Button(window, text="Check-out", width=15, command=self.checkout, bg='blue')
-          self.btn_checkout.grid(row=1, column=2)
+          self.btn_checkout = tk.Button(self.frame1, text="Check-out", width=15, command=self.checkout, bg='blue', )
+          self.btn_checkout.grid(row=1, column=2, sticky='e')
 
           # Button Mở cửa sổ mới và đóng cửa sổ hiện tại
-          self.add_new = tk.Button(window, text="Thêm nhân viên", width=15, command=self.add_employee)
+          self.add_new = tk.Button(self.frame1, text="Thêm nhân viên", width=15, command=self.add_employee)
           self.add_new.grid(row=2, column=1)
           
-          # self.btn_employees = tk.Button(window, text="Quản lý nhân viên", width=15, command=self.employees)
-          # self.btn_employees.grid(row=4, column=1)
+          
           # Hiển thị thông điệp
-          self.lbl_message = tk.Label(window, text="", fg="red")
-          self.lbl_message.grid(row=3, columnspan=3)
+          
+          
+          self.frame2 = tk.Frame(window, padx=10, pady=10)
+          self.frame2.grid(row=0, column=1, sticky='nw')
+          
+          self.record_face_label = tk.Label(self.frame2, bg="lightgrey")  # Label để hiển thị hình ảnh
+          self.record_face_label.grid(row=0, column=0, sticky='nw')  # Đặt ở bên phải
+          self.record_information = tk.Label(self.frame2, pady=10) 
+          self.record_information.grid(row=1, column=0, sticky='w')
+          
+          
+          
+          self.frame3 = tk.Frame(window, padx=10, pady=10)
+          self.frame3.grid(row=0, column=2, sticky='nw')
+          self.user_face_label = tk.Label(self.frame3, bg="lightgrey") # Label để hiển thị hình ảnh
+          self.user_face_label.grid(row=0, column=0, sticky='nw')  # Đặt ở bên phải
+
           
           self.Session = Session
+          
           self.show_frame()
 
      def face_recognition(self, action_type):
@@ -61,40 +82,71 @@ class CheckInOut:
                               face['aligned_img'], face['rotated_x1'], face['rotated_y1'], face['rotated_x2'], face['rotated_y2']
                          )
                          face_img, face_emb = AIModule.get_emb(aligned_img, rotated_x1, rotated_y1, rotated_x2, rotated_y2)
+                         
                          face_img = Image.fromarray(face_img)
+                         face_img = face_img.resize(AIModule.model_size)
+                         
                          img_byte_arr = io.BytesIO()
-                         face_img.save(img_byte_arr, format='PNG')
+                         photo_image = ImageTk.PhotoImage(face_img)
+                         
+                         # Configure the label with the new image
+                         self.record_face_label.configure(image=photo_image)
+                         self.record_face_label.image = photo_image  # Keeping a reference to avoid garbage collection
                          img_byte_arr = img_byte_arr.getvalue()
                          user, dist = self.e_controller.get_employee_by_face_emb(face_emb)
                          print(dist)
-
+                         
                          if dist <= 0.6:
+                              face_img = Image.open(io.BytesIO(user.face_img))
+                              face_img = face_img.resize(AIModule.model_size)
+                              
+                              photo_image = ImageTk.PhotoImage(face_img)
+                              self.user_face_label.configure(image=photo_image)
+                              self.user_face_label.image = photo_image
                               now = datetime.datetime.now()
                               check_record = self.record_controller.add_check_record(user_id=user.id, type=action_type, time=now, face_img=img_byte_arr)
-
                               if action_type == "Check In":
-                                   if now.time() <= datetime.time(9, 0):  # On time
-                                        message = f"Chúc bạn {user.full_name} có một ngày làm việc vui vẻ. Cảm ơn bạn đã đi làm đúng giờ."
-                                   elif now.time() < datetime.time(8, 0):  # Early
-                                        message = f"Bạn {user.full_name} thực sự là một nhân viên tốt. Sự đóng góp của bạn là sự thành công của công ty. Chúc bạn có một ngày làm việc vui vẻ."
-                                   else:  # Late
-                                        message = f"Chúc bạn {user.full_name} có một ngày làm việc vui vẻ. Hy vọng ngày mai bạn sẽ đi làm đúng giờ."
-                                   self.lbl_message.config(text=message)
+                                   self.record_information.config(
+                                   text=f"Tên Nhân Viên: {user.full_name} \n"
+                                           f"Số điện thoại: {user.number} \n"
+                                           f"Thời gian checkin: {now.hour}:{now.minute} \n"
+                                           ,anchor='w'
+                                           ,justify='left'
+                                           ,fg="black"
+                                   )
 
                               elif action_type == "Check Out":
                                    checkin_time = self.record_controller.get_lastest_checkin_records_by_user_id(user.id)
-                                   worked_hours = (now - checkin_time).total_seconds() / 3600
-                                   if worked_hours < 8:
-                                        message = f"Cảm ơn bạn {user.full_name} đã có một ngày làm việc tốt. Hình như hôm nay bạn làm việc chưa đủ 8 giờ. Ngày mai bạn bù nhé."
-                                   else:
-                                        message = f"Cảm ơn bạn {user.full_name} đã có một ngày làm việc tốt. Bạn là một nhân viên tốt, sự thành công của công ty là nhờ sự đóng góp của bạn rất nhiều."
-                                   self.lbl_message.config(text=message)
+                                   time_diff = now - checkin_time
+                                   hours = time_diff.seconds // 3600
+                                   minutes = (time_diff.seconds // 60) % 60
+                                   self.record_information.config(
+                                   text=  f"Tên Nhân Viên: {user.full_name}\n"
+                                             f"Số điện thoại: {user.number}\n"
+                                             f"Thời gian checkout: {now.hour}:{now.minute}\n"
+                                             f"Thời gian checkint gần nhất: {checkin_time.hour}:{checkin_time.minute}\n"
+                                             f"Đã làm việc được: {hours}:{minutes}\n"
+                                             ,anchor='w'
+                                             ,justify='left'
+                                             ,fg="black"
+                                   )
                          else:
-                              self.lbl_message.config(text='Không có dữ liệu người này')
+                              
+                              self.record_information.config(text = "Không có dữ liệu người này", fg="red")
+                              self.user_face_label.configure(image=None)
                except Exception as e:
-                    self.lbl_message.config(text=f"Lỗi: {e}")
+                    self.record_information.config(text=f"{e}", fg="red")
+                    self.user_face_label.configure(image=None)
+                    self.user_face_label.image = None
+                    self.record_face_label.configure(image=None)
+                    self.record_face_label.image = None
+                    
           else:
-               self.lbl_message.config(text='Không thể đọc dữ liệu từ camera')
+               self.record_information.config(text='Không thể đọc dữ liệu từ camera', fg="red")
+               self.user_face_label.configure(image=None)
+               self.user_face_label.image = None
+               self.record_face_label.configure(image=None)
+               self.record_face_label.image = None
 
      def checkin(self):
         # Xử lý check-in bằng cách sử dụng nhận diện khuôn mặt
@@ -119,27 +171,28 @@ class CheckInOut:
             try:
                 detected_faces = AIModule.faces_detect(frame)
                 for face in detected_faces:
-                    face_img, face_emb = AIModule.get_emb(face['aligned_img'], face['rotated_x1'], face['rotated_y1'], face['rotated_x2'], face['rotated_y2'])
-                    user, dist = self.e_controller.get_employee_by_face_emb(face_emb)
+                    bbox_color = (0, 255, 0)  
+                     
+                    # face_img, face_emb = AIModule.get_emb(face['aligned_img'], face['rotated_x1'], face['rotated_y1'], face['rotated_x2'], face['rotated_y2'])
+                    # user, dist = self.e_controller.get_employee_by_face_emb(face_emb)
 
-                    if dist > 0.6:
-                        # Set bounding box color to red and do not display the name
-                        bbox_color = (255, 0, 0)  # Red color
-                    else:
-                        # Set bounding box color to green and display the name
-                        bbox_color = (0, 255, 0)  # Green color
-                    #     name_and_dist = f"{user.fsull_name} ({dist:.2f})"
-                        name = f"{user.full_name}"
-                        font = ImageFont.truetype("arial.ttf", 16)
-                        text_position = (face['rotated_x1'], face['rotated_y1'] - 20)
-                        draw.text(text_position, name, font=font, fill=(255, 255, 255))
+                    # if dist > 0.6:
+                    #     # Set bounding box color to red and do not display the name
+                    #     bbox_color = (255, 0, 0)  # Red color
+                    # else:
+                    #     # Set bounding box color to green and display the name
+                    #     bbox_color = (0, 255, 0)  # Green color
+                    # #     name_and_dist = f"{user.fsull_name} ({dist:.2f})"
+                    #     name = f"{user.full_name}"
+                    #     font = ImageFont.truetype("arial.ttf", 16)
+                    #     text_position = (face['rotated_x1'], face['rotated_y1'] - 20)
+                    #     draw.text(text_position, name, font=font, fill=(255, 255, 255))
 
                     # Draw bounding box with specified color
                     draw.rectangle([face['rotated_x1'], face['rotated_y1'], face['rotated_x2'], face['rotated_y2']], outline=bbox_color, width=2)
 
             except Exception as e:
                 print("Error in face detection:", e)
-
             # Convert back to ImageTk and update canvas
             self.photo = ImageTk.PhotoImage(image=pil_img)
             self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
